@@ -3,8 +3,17 @@ import { createServer } from 'node:http';
 import path from 'path';
 import { Server } from 'socket.io';
 import onoff from 'onoff';
+import i2cbus from 'i2c-bus';
 
-var relais = new onoff.Gpio(17+512, 'out'); //use GPIO pin 17, and specify that it is output
+setInterval(() => {
+  i2cbus.openPromisified(1)
+    .then(i2c1 => i2c1.readByte(0x48, 0x00)
+      .then(temperature => console.log(temperature))
+      .then(_ => i2c1.close())
+      .catch(error => console.log(error)));
+}, 5000);
+
+var relais = new onoff.Gpio(17 + 512, 'out'); //use GPIO pin 17, and specify that it is output
 console.log(relais);
 const app = express();
 const server = createServer(app);
@@ -20,21 +29,19 @@ app.get('/script.js', (req, res) => {
 
 io.on('connection', (socket) => {
   console.log('a user connected');
-  socket.on('disconnect',()=> {
+  socket.on('disconnect', () => {
     console.log('a user is disconnected')
   });
-  socket.on('toggle', (msg) =>
-  {
-  if (relais.readSync() === 0) { //check the pin state, if the state is 0 (or off)
+  socket.on('toggle', (msg) => {
+    if (relais.readSync() === 0) { //check the pin state, if the state is 0 (or off)
       relais.writeSync(1);
       console.log('set pin state to 1 (turn LED on)');
     } else {
       relais.writeSync(0);
       console.log('set pin state to 0 (turn LED off)');
-    }  
+    }
   });
-  socket.on('chat message', (msg) => 
-  {
+  socket.on('chat message', (msg) => {
     console.log(`message is ${msg}`);
     io.emit('chat message', msg);
   });
